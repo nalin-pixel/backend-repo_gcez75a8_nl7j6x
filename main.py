@@ -1,8 +1,13 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List, Optional
 
-app = FastAPI()
+from schemas import Inquiry
+from database import create_document
+
+app = FastAPI(title="Maritime Broker API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -14,7 +19,7 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"message": "Hello from FastAPI Backend!"}
+    return {"message": "Maritime Broker API is running"}
 
 @app.get("/api/hello")
 def hello():
@@ -63,6 +68,63 @@ def test_database():
     response["database_name"] = "✅ Set" if os.getenv("DATABASE_NAME") else "❌ Not Set"
     
     return response
+
+# Public profile information for the broker
+class BrokerProfile(BaseModel):
+    name: str
+    tagline: str
+    description: str
+    email: str
+    phone: Optional[str] = None
+    location: Optional[str] = None
+
+BROKER_PROFILE = BrokerProfile(
+    name="Oceanway Maritime Brokerage",
+    tagline="Chartering • S&P • Logistics • Consulting",
+    description=(
+        "We help cargo owners, ship owners and traders move goods across the globe. "
+        "From dry bulk and project cargo to tankers and offshore support, our team provides reliable chartering, "
+        "sale & purchase advisory, post-fixture support and tailored consulting."
+    ),
+    email="contact@oceanway-broker.com",
+    phone="+44 20 7123 4567",
+    location="London • Dubai • Singapore"
+)
+
+SERVICES = [
+    {
+        "title": "Chartering",
+        "details": "Dry bulk, tankers, container and project cargo across major global routes."
+    },
+    {
+        "title": "Sale & Purchase",
+        "details": "Advisory for vessel acquisitions, disposals and valuations."
+    },
+    {
+        "title": "Logistics",
+        "details": "End-to-end logistics planning, port agency coordination and post-fixture."
+    },
+    {
+        "title": "Consulting",
+        "details": "Market insights, freight tenders, risk management and strategy."
+    }
+]
+
+@app.get("/api/profile")
+def get_profile():
+    return BROKER_PROFILE
+
+@app.get("/api/services")
+def get_services():
+    return {"services": SERVICES}
+
+@app.post("/api/inquiries")
+def create_inquiry(inquiry: Inquiry):
+    try:
+        inserted_id = create_document("inquiry", inquiry)
+        return {"success": True, "id": inserted_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
